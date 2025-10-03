@@ -34,12 +34,21 @@ import AVFoundation
         case record
         case playback
     }
+    
+    public struct Configuration {
+        public let forceSpeakerOutput: Bool
+        
+        public init(forceSpeakerOutput: Bool = false) {
+            self.forceSpeakerOutput = forceSpeakerOutput
+        }
+    }
+    
     public let modes: [Mode]
     private let audioEngine: AVAudioEngine
     private var microphonePCMSampleVendor: MicrophonePCMSampleVendor? = nil
     private var audioPCMPlayer: AudioPCMPlayer? = nil
 
-    public init(modes: [Mode]) async throws {
+    public init(modes: [Mode], configuration: Configuration = Configuration()) async throws {
         self.modes = modes
         #if os(iOS)
         // This is not respected if `setVoiceProcessingEnabled(true)` is used :/
@@ -49,9 +58,14 @@ import AVFoundation
         try? AVAudioSession.sharedInstance().setCategory(
             .playAndRecord,
             mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetooth]
+            options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothA2DP]
         )
         try? AVAudioSession.sharedInstance().setActive(true, options: [])
+        
+        // Apply speaker override if configured
+        if configuration.forceSpeakerOutput {
+            try? AVAudioSession.sharedInstance().overrideOutputAudioPort(.speaker)
+        }
 
         #elseif os(watchOS)
         try? AVAudioSession.sharedInstance().setCategory(.playAndRecord)
@@ -61,15 +75,14 @@ import AVFoundation
         self.audioEngine = AVAudioEngine()
 
         if modes.contains(.record) {
-            #if os(macOS) || os(iOS)
             self.microphonePCMSampleVendor = AIProxyUtils.headphonesConnected
                                                ? try MicrophonePCMSampleVendorAE(audioEngine: self.audioEngine)
                                                : MicrophonePCMSampleVendorAT()
-            #else
-            self.microphonePCMSampleVendor = try MicrophonePCMSampleVendorAE(audioEngine: self.audioEngine)
-            #endif
-        }
 
+            // Always use AudioToolbox on iOS to avoid hearing aid microphone issues
+            self.microphonePCMSampleVendor = MicrophonePCMSampleVendorAT()
+            //self.microphonePCMSampleVendor = try MicrophonePCMSampleVendorAE(audioEngine: self.audioEngine)
+        }
 
         if modes.contains(.playback) {
             self.audioPCMPlayer = try await AudioPCMPlayer(audioEngine: self.audioEngine)
