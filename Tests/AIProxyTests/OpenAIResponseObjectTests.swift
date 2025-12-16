@@ -130,6 +130,7 @@ final class OpenAIResponseObjectTests: XCTestCase {
         XCTAssertEqual(1.0, res.topP)
         XCTAssertEqual("disabled", res.truncation)
         XCTAssertEqual(26, res.usage?.inputTokens)
+        XCTAssertEqual(0, res.usage?.inputTokensDetails?.cachedTokens)
         XCTAssertEqual(10, res.usage?.outputTokens)
         XCTAssertEqual(0, res.usage?.outputTokensDetails?.reasoningTokens)
         XCTAssertEqual(36, res.usage?.totalTokens)
@@ -446,4 +447,27 @@ final class OpenAIResponseObjectTests: XCTestCase {
 
         XCTAssertEqual("You always starts responses with Ahoy Matey", str)
     }
+
+    func testGPT5_1ResponseWithReasoningNoneIsDecodable() throws {
+        let sampleResponse = #"""
+        {
+          "effort": "none",
+          "summary": null
+        }
+        """#
+        let res = try OpenAIResponse.Reasoning.deserialize(from: sampleResponse)
+        XCTAssertEqual(.noReasoning, res.effort)
+    }
+
+    func testGPT5_1ResponseWithUnknownReasoningIsDecodable() throws {
+        let sampleResponse = #"""
+        {
+          "effort": "foobar",
+          "summary": null
+        }
+        """#
+        let res = try OpenAIResponse.Reasoning.deserialize(from: sampleResponse)
+        XCTAssertEqual(.futureProof, res.effort)
+    }
+
 }
