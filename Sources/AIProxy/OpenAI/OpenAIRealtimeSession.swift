@@ -184,6 +184,23 @@ nonisolated private let kWebsocketDisconnectedEarlyThreshold: TimeInterval = 3
                 self.continuation?.yield(.inputAudioTranscriptionCompleted(transcript))
             }
             
+        // Text-only mode events
+        case "response.text.delta":
+            if let delta = json["delta"] as? String {
+                self.continuation?.yield(.responseTextDelta(delta))
+            }
+            
+        case "response.text.done":
+            if let text = json["text"] as? String {
+                self.continuation?.yield(.responseTextDone(text))
+            }
+            
+        case "response.content_part.done":
+            if let part = json["part"] as? [String: Any],
+               let text = part["text"] as? String {
+                self.continuation?.yield(.responseContentPartDone(text))
+            }
+            
         default:
             // Log unhandled message types for debugging
             logIf(.debug)?.debug("Unhandled message type: \(messageType) - \(json)")
